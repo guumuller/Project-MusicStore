@@ -14,7 +14,7 @@ class Usuario(Base):
 
     def comprar(self):
 
-        from main import  session
+        from main import session
 
         categoria = input('Produto desejado: ')
         cor = input('Cor do produto desejado: ')

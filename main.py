@@ -1,101 +1,158 @@
-from user import Usuario
-from store import Loja, Produto
+from sqlalchemy import create_engine, Column, Integer, String, Float
+from sqlalchemy.orm import sessionmaker, declarative_base
+import getpass
+from usuario import Usuario
+from produtos import Produtos
+from adm import Adm
 
-class Sistema:
-    def __init__(self):
-        self.lojas = []
-        self.usuarios = []
 
-    def cadastrar_loja(self, nome, endereco):
-        loja = Loja(nome, endereco)
-        self.lojas.append(loja)
-        print(f"Loja '{nome}' cadastrada com sucesso.")
+DATABASE_URL = "mysql+mysqlconnector://root:@localhost/lojamusica"
 
-    def cadastrar_produto_na_loja(self, nome_loja, nome_produto, preco):
-        loja = self.encontrar_loja(nome_loja)
-        if loja:
-            produto = Produto(nome_produto, preco)
-            loja.adicionar_produto(produto)
-            print(f"Produto '{nome_produto}' adicionado à loja '{nome_loja}'.")
+engine = create_engine(DATABASE_URL)
+Session = sessionmaker(bind=engine)
+session = Session()
+Base = declarative_base()
 
-    def cadastrar_usuario(self, nome, email):
-        usuario = Usuario(nome, email)
-        self.usuarios.append(usuario)
-        print(f"Usuário '{nome}' cadastrado com sucesso.")
 
-    def listar_lojas(self):
-        if not self.lojas:
-            print("Não há lojas cadastradas.")
-        else:
-            print("Lojas cadastradas:")
-            for loja in self.lojas:
-                print(f"- {loja.nome}, Endereço: {loja.endereco}")
-                
-    def listar_usuarios(self):
-        if not self.usuarios:
-            print("Não há usuários cadastrados.")
-        else:
-            print("Usuários cadastrados:")
-            for usuario in self.usuarios:
-                print(f"- {usuario.nome}, Email: {usuario.email}")
-                
-    def encontrar_loja(self, nome_loja):
-        for loja in self.lojas:
-            if loja.nome == nome_loja:
-                return loja
-        print(f"Loja '{nome_loja}' não encontrada.")
-        return None
+class Adm(Base):
+    __tablename__ = 'Administrador'
 
-def menu():
-    sistema = Sistema()
+    ID_produto = Column(Integer, primary_key=True, autoincrement=True)
+    admin = Column(String(50), nullable=False)
+    senha = Column(String(50), nullable=False)
 
+
+def cadastrar_usuario():
+    print('='*10+' CADASTRO '+'='*10)
+    username = input("Username: ")
+    senha = getpass.getpass('Senha:')
+
+    username_existente = session.query(Usuario).filter_by(username = username).first()
+    if username_existente:
+        print(f'O username {username} já está ativo. Tente outro.')
+        return
+
+    new_usuario = Usuario(username = username, senha = senha)
+    session.add(new_usuario)
+    session.commit()
+    print(f'Usuario {username} cadastrado com sucesso.\n')
+
+def login():
+    print('='*10+' LOGIN '+'='*10)
+    username = input("Username: ")
+    senha = getpass.getpass('Senha:')
+
+    usuario = session.query(Usuario).filter_by(username = username, senha = senha).first()
+    if usuario:
+        print(f'Bem-Vindo, {username}')
+        return True
+    else:
+        print(f'Usuário ou senha incorreto. Tente novamente.')
+        return False
+
+def criar_admin_padrao():
+    admin_existente = session.query(Adm).filter_by(admin='administrador').first()
+    if not admin_existente:
+        adm = Adm(admin='administrador', senha='1234')
+        session.add(adm)
+        session.commit()
+        print('Administrador padrão criado.')
+
+def login_admin():
+    print('='*10+' LOGIN ADMIN '+'='*10)
+    admin = input("Username: ")
+    senha = getpass.getpass('Senha:')
+
+    usuario = session.query(Adm).filter_by(admin = admin, senha = senha).first()
+    if usuario:
+        print(f'Bem-Vindo, {admin}')
+        return True
+    print(f'Usuário ou senha incorreto. Tente novamente.')
+    return False
+
+def cadastro_produto():
+    categoria = input('Categoria: ')
+    cor = input('Cor: ')
+    estoque = int(input('Quantidade no estoque: '))
+    valor = float(input('Valor: '))
+
+    produto_existente = session.query(Produtos).filter_by(categoria = categoria, cor = cor).first()
+    if produto_existente:
+        print('Já existe peças identicas a essa no estoque. Se quiser atualizar escolha outra opção.')
+        return
+    
+    new_produto = Produtos(categoria = categoria, cor = cor, estoque = estoque, valor = valor)
+    session.add(new_produto)
+    session.commit()
+    print(f'O produto {categoria} de cor {cor} foi adicionado com sucesso!')
+    
+def visualizar_estoque():
+    print("\n--- Estoque Atual ---")
+    produtos = session.query(Produtos).all()
+    if not produtos:
+        print("Não há produtos cadastrados no estoque.")
+    else:
+        for produto in produtos:
+            print(f"Produto: {produto.categoria} | Cor: {produto.cor} | Estoque: {produto.estoque} | Valor: {produto.valor}")
+
+if __name__ == "__main__":
+    
+    Base.metadata.create_all(engine)  # Cria a tabela se não existir
+    criar_admin_padrao()
+    # login_admin()
+    # cadastro_produto()
     while True:
-        print("\n---- Menu ----")
-        print("1. Cadastrar Loja")
-        print("2. Cadastrar Produto na Loja")
-        print("3. Cadastrar Usuário")
-        print("4. Listar Lojas")
-        print("5. Listar Usuários")
-        print("6. Listar Produtos de uma Loja")
-        print("0. Sair")
+        print("\n--- Menu Principal ---")
+        print("1. Login Usuário")
+        print("2. Cadastrar Usuário")
+        print("3. Login Administrador")
+        print("4. Sair")
         
         opcao = input("Escolha uma opção: ")
 
-        if opcao == "1":
-            nome_loja = input("Nome da loja: ")
-            endereco = input("Endereço da loja: ")
-            sistema.cadastrar_loja(nome_loja, endereco)
+        if opcao == '1':
+            if login():  # Realiza o login do usuário
+                print("\n--- Menu do Usuário ---")
+                usuario = session.query(Usuario).filter_by(username=input("Digite seu username: ")).first()
+                while True:
+                    print("\n1. Comprar Produto")
+                    print("2. Logout")
+                    opcao_usuario = input("Escolha uma opção: ")
 
-        elif opcao == "2":
-            nome_loja = input("Nome da loja onde deseja adicionar o produto: ")
-            nome_produto = input("Nome do produto: ")
-            preco = float(input("Preço do produto: R$ "))
-            sistema.cadastrar_produto_na_loja(nome_loja, nome_produto, preco)
+                    if opcao_usuario == '1':
+                        usuario.comprar()  # Chama a função `comprar` do usuário logado
+                    elif opcao_usuario == '2':
+                        print("Logout realizado.")
+                        break
+                    else:
+                        print("Opção inválida.")
 
-        elif opcao == "3":
-            nome_usuario = input("Nome do usuário: ")
-            email_usuario = input("Email do usuário: ")
-            sistema.cadastrar_usuario(nome_usuario, email_usuario)
+        elif opcao == '2':
+            cadastrar_usuario()  # Chama a função para cadastrar um novo usuário
 
-        elif opcao == "4":
-            sistema.listar_lojas()
+        elif opcao == '3':
+            if login_admin():  # Realiza o login do administrador
+                print("Bem-vindo, Administrador.")
+                while True:
+                    print("\n--- Menu do Administrador ---")
+                    print("1. Cadastrar Produto")
+                    print("2. Visualizar Estoque")
+                    print("3. Logout")
+                    opcao_admin = input("Escolha uma opção: ")
 
-        elif opcao == "5":
-            sistema.listar_usuarios()
-
-        elif opcao == "6":
-            nome_loja = input("Digite o nome da loja para listar os produtos: ")
-            loja = sistema.encontrar_loja(nome_loja)
-            if loja:
-                loja.listar_produtos()
-
-        elif opcao == "0":
-            print("Saindo...")
+                    if opcao_admin == '1':
+                        cadastro_produto()  # Chama a função para cadastrar um novo produto
+                    elif opcao_admin == '2':
+                        visualizar_estoque() 
+                    elif opcao_admin == '3':
+                        print("Logout realizado.")
+                        break
+                    else:
+                        print("Opção inválida.")
+        
+        elif opcao == '4':
+            print("Saindo do sistema.")
             break
 
         else:
-            print("Opção inválida! Tente novamente.")
-
-
-if __name__ == "__main__":
-    menu()
+            print("Opção inválida.")
