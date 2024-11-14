@@ -88,6 +88,7 @@ def cadastro_produto():
     
 def visualizar_estoque():
     print("\n--- Estoque Atual ---")
+    session = Session()
     produtos = session.query(Produtos).all()
     if not produtos:
         print("Não há produtos cadastrados no estoque.")

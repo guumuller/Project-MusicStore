@@ -26,6 +26,7 @@ class Usuario(Base):
                 produto_encontrado.estoque -= 1
                 
                 session.commit()
+                session.close()
                 print(f"Compra realizada com sucesso!")
         else:
             print('Produto fora de estoque')
